@@ -5,6 +5,7 @@
   import { me, logout } from '$lib/api/auth';
   import type { User } from '$lib/schemas/auth';
   import { clearAccessToken, getAccessToken } from '$lib/utils/auth-interceptor';
+  import Button from '$lib/components/Button.svelte';
 
   const qc = useQueryClient();
 
@@ -42,37 +43,37 @@
   });
 </script>
 
-<main class="min-h-screen bg-slate-50 p-8">
+<main class="min-h-screen bg-canvas p-8">
   <div class="max-w-4xl mx-auto space-y-6">
     {#if loading}
-      <div class="text-center text-slate-500 py-12">Cargando...</div>
+      <div class="text-center text-muted py-12">Cargando...</div>
     {:else if user}
       <header class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold">Mis finanzas</h1>
+        <h1 class="text-3xl font-light font-waldenburg text-ink">Mis finanzas</h1>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-600">{user.display_name || user.email}</span>
-          <button
+          <span class="text-sm text-body">{user.display_name || user.email}</span>
+          <Button
+            variant="outline"
             type="button"
-            onclick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
-            class="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 text-sm font-medium disabled:opacity-50 transition-colors"
+            onclick={() => logoutMutation.mutate()}
           >
             {logoutMutation.isPending ? 'Saliendo...' : 'Cerrar sesión'}
-          </button>
+          </Button>
         </div>
       </header>
 
-      <div class="bg-white rounded-lg shadow-sm p-12 text-center space-y-4">
-        <h2 class="text-2xl font-bold text-slate-700">Bienvenido</h2>
-        <p class="text-slate-600">
+      <div class="bg-surface-card rounded-xl border border-hairline p-12 text-center space-y-4 shadow-card-hover">
+        <h2 class="text-2xl font-light font-waldenburg text-ink">Bienvenido</h2>
+        <p class="text-body">
           Tu dashboard va a aparecer acá cuando construyamos transactions en Fase 3.
         </p>
-        <p class="text-sm text-slate-500">
+        <p class="text-sm text-muted">
           Auth funcionando. El botón "Cerrar sesión" arriba te redirige a /auth/login.
         </p>
       </div>
     {:else}
-      <div class="text-center text-slate-500 py-12">Sin sesión activa</div>
+      <div class="text-center text-muted py-12">Sin sesión activa</div>
     {/if}
   </div>
 </main>
