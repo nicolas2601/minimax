@@ -63,6 +63,10 @@ func TestHandler_Register_Success(t *testing.T) {
 	require.NotNil(t, refreshCookie)
 	assert.True(t, refreshCookie.HttpOnly)
 	assert.NotEmpty(t, refreshCookie.Value)
+	// CSRF hardening: cookie must be Lax (not None/empty) and scoped to the
+	// auth routes so it is not sent on cross-site requests to other paths.
+	assert.Equal(t, http.SameSiteLaxMode, refreshCookie.SameSite)
+	assert.Equal(t, "/api/v1/auth", refreshCookie.Path)
 }
 
 func TestHandler_Login_WrongPassword_Returns401(t *testing.T) {
@@ -160,6 +164,11 @@ func TestHandler_Logout_ClearsCookie(t *testing.T) {
 		if cookie.Name == "refresh_token" {
 			assert.Equal(t, "", cookie.Value)
 			assert.Equal(t, -1, cookie.MaxAge)
+			// Clear cookie must match the original's Path and SameSite so the
+			// browser actually overwrites the cookie instead of leaving a
+			// stale scoped duplicate behind.
+			assert.Equal(t, "/api/v1/auth", cookie.Path)
+			assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 		}
 	}
 }

@@ -119,19 +119,37 @@ func (h *Handler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, UserResponse{User: user})
 }
 
+// refreshCookieName is the cookie name used for refresh tokens.
+const refreshCookieName = "refresh_token"
+
+// refreshCookiePath scopes the refresh cookie to the auth routes so the
+// browser only sends it on /api/v1/auth/* requests, reducing CSRF exposure
+// surface and accidental leakage to unrelated paths.
+const refreshCookiePath = "/api/v1/auth"
+
 func setRefreshCookie(c *gin.Context, token string, cfg *config.Config) {
 	secure := cfg.GinMode != "debug"
+	// SetSameSite must be called BEFORE SetCookie because Gin's c.SetSameSite
+	// sets the field on c.SetCookie's underlying http.Cookie, and SetCookie
+	// copies it onto the response. http.SameSiteLaxMode allows top-level
+	// navigation to the auth endpoints (needed for email-link flows) while
+	// blocking the cookie on cross-site sub-requests like POST forms and
+	// iframes, which mitigates CSRF for state-changing /refresh.
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
-		"refresh_token",
+		refreshCookieName,
 		token,
 		int(RefreshTokenDuration.Seconds()),
-		"/",
+		refreshCookiePath,
 		"",
 		secure,
-		true,
+		true, // HttpOnly — JS cannot read the refresh token.
 	)
 }
 
 func clearRefreshCookie(c *gin.Context) {
-	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
+	// Clear with matching attributes so the browser actually overwrites the
+	// cookie. Mismatched Path or SameSite leaves a stale cookie behind.
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(refreshCookieName, "", -1, refreshCookiePath, "", false, true)
 }
