@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/nicolas/finanzas/backend/internal/accounts"
 	"github.com/nicolas/finanzas/backend/internal/auth"
@@ -14,68 +19,6 @@ import (
 	"github.com/nicolas/finanzas/backend/internal/middleware"
 	"github.com/nicolas/finanzas/backend/internal/server"
 )
-
-// userIDFromToken is a small adapter for the userID middleware.
-func userIDFromToken(svc any) func(string) (string, error) {
-	return func(token string) (string, error) {
-		// Type assert at call site via the registered Service type.
-		type meRet struct {
-			User struct {
-				ID string `json:"id"`
-			} `json:"user"`
-		}
-		// Defer to the real service.
-		u, err := callMe(svc, token)
-		if err != nil {
-			return "", err
-		}
-		_ = meRet{}
-		uid, err := uuid.Parse(u.ID)
-		if err != nil {
-			return "", err
-		}
-		return uid.String(), nil
-	}
-}
-
-// callMe is a thin wrapper that satisfies the interface expected by the
-// userID middleware without leaking the auth import into every package.
-type meCaller interface {
-	Me(token string) (interface{ ID() string }, error)
-}
-
-func callMe(svc any, token string) (struct{ ID string }, error) {
-	type userIDer interface {
-		Me(token string) (any, error)
-	}
-	// The actual auth.Service.Me returns *auth.User; we don't want to import
-	// auth here for dependency cleanliness — but the simplest approach is to
-	// just type-assert.
-	type concrete interface {
-		Me(token string) (any, error)
-	}
-	c, ok := svc.(concrete)
-	if !ok {
-		return struct{ ID string }{}, nil
-	}
-	u, err := c.Me(token)
-	if err != nil {
-		return struct{ ID string }{}, err
-	}
-	type withID interface {
-		GetID() string
-	}
-	if wid, ok := u.(withID); ok {
-		return struct{ ID string }{ID: wid.GetID()}, nil
-	}
-	// Reflective fallback: assume the type has a string-convertible ID via JSON
-	// marshaling. auth.User.ID is uuid.UUID, which marshals to a string.
-	type stringer interface{ String() string }
-	if s, ok := u.(stringer); ok {
-		return struct{ ID string }{ID: s.String()}, nil
-	}
-	return struct{ ID string }{}, nil
-}
 
 func main() {
 	cfg := config.Load()
@@ -121,7 +64,50 @@ func main() {
 
 	addr := ":" + cfg.Port
 	log.Printf("Server starting on %s", addr)
-	if err := r.Run(addr); err != nil {
-		log.Fatalf("Server failed: %v", err)
+
+	// Graceful shutdown: explicit http.Server with timeouts (gin.Engine.Run uses
+	// http.Server internally but with no ReadHeaderTimeout and no Shutdown hook).
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+		close(serverErr)
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	case sig := <-quit:
+		log.Printf("Received %s, shutting down gracefully...", sig)
+	}
+
+	// Stop accepting new connections; let in-flight requests finish (up to 15s).
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
+	}
+
+	// Close DB pool so in-flight queries get a clean stop and file descriptors
+	// are released before the process exits.
+	if sqlDB, err := gormDB.DB(); err == nil {
+		_ = sqlDB.Close()
+	}
+
+	log.Println("Server exited")
 }
