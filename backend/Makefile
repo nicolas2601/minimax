@@ -22,7 +22,8 @@ tidy:
 	go mod tidy
 
 migrate-up:
-	@echo "Sin migraciones aún (se agregan en Fase 1)"
+	@if [ ! -f .env ]; then cp .env.example .env && echo "Creado .env desde .env.example"; fi
+	go run ./cmd/migrate up
 
 migrate-down:
-	@echo "Sin migraciones aún"
+	@echo "Down migration no implementado en plan de Fase 1"
