@@ -6,6 +6,8 @@ export interface AuthResponse {
   access_token: string;
 }
 
+export type { User };
+
 export async function login(input: { email: string; password: string }): Promise<AuthResponse> {
   const response = await apiFetch<AuthResponse>('/auth/login', {
     method: 'POST',

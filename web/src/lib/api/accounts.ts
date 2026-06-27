@@ -9,6 +9,8 @@ import {
   type UpdateAccountInput
 } from '$lib/schemas/account';
 
+export type { Account, AccountType, CreateAccountInput, UpdateAccountInput } from '$lib/schemas/account';
+
 export async function listAccounts(): Promise<Account[]> {
   const res = await apiFetch<unknown>('/accounts');
   const parsed = AccountListResponseSchema.parse(res);
