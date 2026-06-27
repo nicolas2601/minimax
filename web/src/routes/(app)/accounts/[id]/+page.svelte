@@ -9,6 +9,7 @@
   import Card from '$lib/components/Card.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import { ApiException } from '$lib/utils/api-error';
+  import { getAccessToken } from '$lib/utils/auth-interceptor';
 
   let account = $state<Account | null>(null);
   let name = $state('');
@@ -20,7 +21,7 @@
   let loading = $state(true);
 
   onMount(async () => {
-    if (!localStorage.getItem('access_token')) {
+    if (!getAccessToken()) {
       goto('/auth/login');
       return;
     }
@@ -77,12 +78,13 @@
 
 <svelte:head><title>Editar cuenta — Mis finanzas</title></svelte:head>
 
-<main class="min-h-screen bg-canvas p-8">
-  <div class="max-w-md mx-auto space-y-6">
+<main class="bg-canvas min-h-screen">
+  <div class="max-w-md mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6">
     <header>
-      <h1 class="text-3xl font-light text-ink font-waldenburg">Editar cuenta</h1>
+      <p class="text-xs uppercase tracking-wider text-muted">Tu dinero</p>
+      <h1 class="font-waldenburg text-4xl md:text-5xl font-light text-ink mt-1">Editar cuenta</h1>
       {#if account}
-        <p class="text-sm text-muted mt-1">Modificá los datos de <strong>{account.name}</strong></p>
+        <p class="text-sm text-muted mt-2">Modificá los datos de <strong class="text-ink">{account.name}</strong></p>
       {/if}
     </header>
 
