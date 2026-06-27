@@ -6,6 +6,7 @@
   import TextInput from '$lib/components/TextInput.svelte';
   import Card from '$lib/components/Card.svelte';
   import { ApiException } from '$lib/utils/api-error';
+  import { getAccessToken } from '$lib/utils/auth-interceptor';
 
   let name = $state('');
   let type = $state<AccountType>('debit');
@@ -18,7 +19,7 @@
   let submitting = $state(false);
 
   onMount(() => {
-    if (!localStorage.getItem('access_token')) goto('/auth/login');
+    if (!getAccessToken()) goto('/auth/login');
   });
 
   async function onSubmit(e: Event) {
@@ -46,11 +47,12 @@
 
 <svelte:head><title>Nueva cuenta — Mis finanzas</title></svelte:head>
 
-<main class="min-h-screen bg-canvas p-8">
-  <div class="max-w-md mx-auto space-y-6">
+<main class="bg-canvas min-h-screen">
+  <div class="max-w-md mx-auto px-4 md:px-6 py-6 md:py-10 space-y-6">
     <header>
-      <h1 class="text-3xl font-light text-ink font-waldenburg">Nueva cuenta</h1>
-      <p class="text-sm text-muted mt-1">Sumá una cuenta para registrar movimientos.</p>
+      <p class="text-xs uppercase tracking-wider text-muted">Tu dinero</p>
+      <h1 class="font-waldenburg text-4xl md:text-5xl font-light text-ink mt-1">Nueva cuenta</h1>
+      <p class="text-sm text-muted mt-2">Sumá una cuenta para registrar movimientos.</p>
     </header>
 
     <Card>
