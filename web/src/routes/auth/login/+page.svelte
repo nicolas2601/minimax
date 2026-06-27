@@ -4,6 +4,8 @@
   import { login } from '$lib/api/auth';
   import { ApiException } from '$lib/utils/api-error';
   import { setAccessToken } from '$lib/utils/auth-interceptor';
+  import TextInput from '$lib/components/TextInput.svelte';
+  import Button from '$lib/components/Button.svelte';
 
   let { data } = $props();
 
@@ -41,66 +43,55 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm p-8 space-y-6">
+<div class="bg-surface-card rounded-xl border border-hairline p-8 space-y-6 shadow-card-hover">
   <header class="text-center space-y-2">
-    <h1 class="text-2xl font-bold">Iniciar sesión</h1>
-    <p class="text-sm text-slate-600">Bienvenido de vuelta</p>
+    <h1 class="text-2xl font-light font-waldenburg text-ink">Iniciar sesión</h1>
+    <p class="text-sm text-body">Bienvenido de vuelta</p>
   </header>
 
-  <form onsubmit={onSubmit} class="space-y-4" aria-describedby={serverError ? 'login-error' : undefined} novalidate>
-    <div class="space-y-1">
-      <label for="email" class="text-sm font-medium text-slate-700">Email</label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        required
-        bind:value={email}
-        aria-invalid={fieldErrors.email ? 'true' : undefined}
-        aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-        class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      {#if fieldErrors.email}
-        <p id="email-error" class="text-xs text-red-600">{fieldErrors.email[0]}</p>
-      {/if}
-    </div>
+  <form
+    onsubmit={onSubmit}
+    class="space-y-4"
+    aria-describedby={serverError ? 'login-error' : undefined}
+    novalidate
+  >
+    <TextInput
+      label="Email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      required
+      bind:value={email}
+      error={fieldErrors.email?.[0]}
+    />
 
-    <div class="space-y-1">
-      <label for="password" class="text-sm font-medium text-slate-700">Contraseña</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        required
-        bind:value={password}
-        aria-invalid={fieldErrors.password ? 'true' : undefined}
-        aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-        class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      {#if fieldErrors.password}
-        <p id="password-error" class="text-xs text-red-600">{fieldErrors.password[0]}</p>
-      {/if}
-    </div>
+    <TextInput
+      label="Contraseña"
+      name="password"
+      type="password"
+      autocomplete="current-password"
+      required
+      bind:value={password}
+      error={fieldErrors.password?.[0]}
+    />
 
     {#if serverError}
-      <p id="login-error" role="alert" class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
+      <p
+        id="login-error"
+        role="alert"
+        class="text-sm text-semantic-error bg-canvas-soft border border-hairline px-3 py-2 rounded-md"
+      >
         {serverError}
       </p>
     {/if}
 
-    <button
-      type="submit"
-      disabled={submitting}
-      class="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-    >
+    <Button variant="primary" type="submit" disabled={submitting}>
       {submitting ? 'Ingresando...' : 'Ingresar'}
-    </button>
+    </Button>
 
-    <p class="text-sm text-center text-slate-600">
+    <p class="text-sm text-center text-body">
       ¿No tenés cuenta?
-      <a href="/auth/register" class="text-blue-600 hover:underline">Registrate</a>
+      <a href="/auth/register" class="text-ink hover:underline">Registrate</a>
     </p>
   </form>
 </div>
