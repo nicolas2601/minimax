@@ -9,6 +9,8 @@ import {
   type UpdateCategoryInput
 } from '$lib/schemas/category';
 
+export type { Category, CategoryType, CreateCategoryInput, UpdateCategoryInput } from '$lib/schemas/category';
+
 export async function listCategories(type?: 'expense' | 'income'): Promise<Category[]> {
   const query = type ? `?type=${type}` : '';
   const res = await apiFetch<unknown>(`/categories${query}`);
