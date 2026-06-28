@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { LoginInputSchema } from '$lib/schemas/auth';
   import { login } from '$lib/api/auth';
   import { ApiException } from '$lib/utils/api-error';
   import { setAccessToken } from '$lib/utils/auth-interceptor';
+  import { authStore } from '$lib/stores/auth.svelte.ts';
   import TextInput from '$lib/components/TextInput.svelte';
   import Button from '$lib/components/Button.svelte';
 
@@ -14,6 +16,12 @@
   let fieldErrors = $state<Record<string, string[] | undefined>>({});
   let serverError = $state<string | null>(null);
   let submitting = $state(false);
+
+  onMount(() => {
+    if (authStore.isAuthenticated) {
+      goto('/');
+    }
+  });
 
   async function onSubmit(e: Event) {
     e.preventDefault();
@@ -30,6 +38,7 @@
     try {
       const result = await login(parsed.data);
       setAccessToken(result.access_token);
+      authStore.setUser(result.user);
       await goto('/');
     } catch (e) {
       if (e instanceof ApiException) {
