@@ -43,3 +43,30 @@ func (a *TravelUserAdapter) FindByEmail(email string) (uuid.UUID, error) {
 	}
 	return user.ID, nil
 }
+
+// RecurringUserResolverAdapter lets the recurring package convert a
+// userID string (as it appears in JWT-derived request contexts or query
+// params) back to a uuid.UUID. The recurring service stores the resolver
+// so future endpoints that take userID as a path/query parameter can use
+// it without re-introducing an auth import. The conversion itself is a
+// pure parse — no DB hit — so it lives here without a repository dependency.
+type RecurringUserResolverAdapter struct{}
+
+// NewRecurringUserResolverAdapter returns a stateless adapter. Constructor
+// exists so the wiring in main.go stays explicit and symmetric with the
+// other adapters; no fields are needed today but adding one later is
+// non-breaking.
+func NewRecurringUserResolverAdapter() *RecurringUserResolverAdapter {
+	return &RecurringUserResolverAdapter{}
+}
+
+// UserIDFromString implements recurring.UserResolver. Invalid UUIDs
+// surface as errors so the recurring service can map them to its own
+// validation error instead of a generic 500.
+func (a *RecurringUserResolverAdapter) UserIDFromString(userIDStr string) (uuid.UUID, error) {
+	id, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
+}

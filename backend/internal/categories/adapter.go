@@ -74,10 +74,42 @@ func (a *BudgetCategoryAdapter) GetByID(id, userID uuid.UUID) (bool, error) {
 	return false, err
 }
 
-// compile-time assertions that both adapters satisfy the tiny look-up
-// contract. The actual transactions.Account / budgets.CategoryLookup types
-// live in the consumer packages — the assertions below make sure we keep
-// the signatures in sync.
+// RecurringCategoryAdapter exposes the same Exists contract for the
+// recurring package. Separate type so each consumer keeps its own import
+// edge — categories does not import recurring.
+type RecurringCategoryAdapter struct {
+	svc Service
+}
+
+// NewRecurringCategoryAdapter wires categories.Service into the
+// recurring.CategoryLookup contract.
+func NewRecurringCategoryAdapter(svc Service) *RecurringCategoryAdapter {
+	if svc == nil {
+		return nil
+	}
+	return &RecurringCategoryAdapter{svc: svc}
+}
+
+// Exists satisfies the recurring.CategoryLookup contract. A "not found"
+// result maps to (false, nil) so the recurring service can distinguish
+// missing from real DB errors, which propagate.
+func (a *RecurringCategoryAdapter) Exists(id, userID uuid.UUID) (bool, error) {
+	_, err := a.svc.Get(id, userID)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, ErrCategoryNotFound) {
+		return false, nil
+	}
+	return false, err
+}
+
+// compile-time assertions that the GetByID-shaped adapters satisfy the
+// tiny look-up contract. The actual transactions.Account /
+// budgets.CategoryLookup types live in the consumer packages — the
+// assertions below make sure we keep the signatures in sync.
+// RecurringCategoryAdapter implements the Exists contract instead (see
+// recurring.CategoryLookup) and is asserted at its own site.
 var (
 	_ categoryLookup = (*TransactionCategoryAdapter)(nil)
 	_ categoryLookup = (*BudgetCategoryAdapter)(nil)

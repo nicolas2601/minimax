@@ -19,6 +19,7 @@ import (
 	"github.com/nicolas/finanzas/backend/internal/db"
 	"github.com/nicolas/finanzas/backend/internal/goals"
 	"github.com/nicolas/finanzas/backend/internal/middleware"
+	"github.com/nicolas/finanzas/backend/internal/recurring"
 	"github.com/nicolas/finanzas/backend/internal/reports"
 	"github.com/nicolas/finanzas/backend/internal/server"
 	"github.com/nicolas/finanzas/backend/internal/transactions"
@@ -62,6 +63,8 @@ func main() {
 
 	goalRepo := goals.NewRepository(gormDB)
 
+	recurringRepo := recurring.NewRepository(gormDB)
+
 	// --- Adapters ---
 	// Each adapter translates one service into the small contract another
 	// package expects. Keeping these in the *producing* package (the one
@@ -73,6 +76,9 @@ func main() {
 	travelUserAdapter := auth.NewTravelUserAdapter(userRepo)
 	reportBudgetAdapter := budgets.NewReportBudgetAdapter(budgetRepo)
 	goalAccountAdapter := accounts.NewGoalsAccountAdapter(accSvc)
+	recurringAccountAdapter := accounts.NewRecurringAccountAdapter(accSvc)
+	recurringCategoryAdapter := categories.NewRecurringCategoryAdapter(catSvc)
+	recurringUserAdapter := auth.NewRecurringUserResolverAdapter()
 
 	// --- Services ---
 	txSvc := transactions.NewService(txRepo, txAccountAdapter, txCategoryAdapter)
@@ -80,6 +86,8 @@ func main() {
 	travelSvc := travel.NewService(travelRepo, travelUserAdapter)
 	reportSvc := reports.NewService(txRepo, reportBudgetAdapter)
 	goalSvc := goals.NewService(goalRepo, goalAccountAdapter)
+	recurringTxAdapter := transactions.NewRecurringTxCreatorAdapter(txSvc)
+	recurringSvc := recurring.NewService(recurringRepo, recurringAccountAdapter, recurringCategoryAdapter, recurringTxAdapter, recurringUserAdapter)
 
 	// --- HTTP ---
 	r := server.New(gormDB)
@@ -105,6 +113,7 @@ func main() {
 	travel.RegisterRoutes(api, travel.NewHandler(travelSvc), requireUserID)
 	reports.RegisterRoutes(api, reports.NewHandler(reportSvc), requireUserID)
 	goals.RegisterRoutes(api, goals.NewHandler(goalSvc), requireUserID)
+	recurring.RegisterRoutes(api, recurring.NewHandler(recurringSvc), requireUserID)
 
 	addr := ":" + cfg.Port
 	log.Printf("Server starting on %s", addr)
