@@ -11,9 +11,8 @@
   import { createMutation, useQueryClient } from '@tanstack/svelte-query';
   import { me, logout } from '$lib/api/auth';
   import type { User } from '$lib/schemas/auth';
-  import { listAccounts } from '$lib/api/accounts';
-  import { listCategories } from '$lib/api/categories';
   import { getAccessToken, clearAccessToken } from '$lib/utils/auth-interceptor';
+  import { authStore } from '$lib/stores/auth.svelte.ts';
   import Stat from '$lib/components/Stat.svelte';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -27,6 +26,7 @@
     mutationFn: logout,
     onSuccess: () => {
       clearAccessToken();
+      authStore.clearUser();
       qc.clear();
       goto('/auth/login');
     }
@@ -41,8 +41,10 @@
     try {
       // Best-effort load — fall back to "Sin sesión" si falla la red.
       user = await me();
+      authStore.setUser(user);
     } catch {
       clearAccessToken();
+      authStore.clearUser();
       goto('/auth/login');
       return;
     } finally {
