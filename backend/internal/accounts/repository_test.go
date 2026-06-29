@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package accounts_test
 
 import (
