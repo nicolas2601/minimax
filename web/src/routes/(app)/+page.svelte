@@ -12,6 +12,7 @@
   import { listTransactions } from '$lib/api/transactions';
   import { getSummary, getByCategory } from '$lib/api/reports';
   import { toast } from '$lib/stores/toast.svelte';
+  import { inViewport } from '$lib/motion/transitions';
   import type { User } from '$lib/schemas/auth';
   import type { Transaction } from '$lib/schemas/transaction';
   import type { CategoryReportItem } from '$lib/schemas/report';
@@ -211,7 +212,7 @@
       </header>
 
       <!-- Stats grid -->
-      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6" aria-label="Resumen financiero">
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 stagger" aria-label="Resumen financiero" use:inViewport>
         <Card>
           <Stat
             label="Saldo total"
@@ -253,7 +254,7 @@
       </section>
 
       <!-- Gráfico de torta + Acciones rápidas -->
-      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 stagger" use:inViewport>
         <Card>
           <div class="space-y-4">
             <div class="flex items-baseline justify-between">
@@ -322,7 +323,7 @@
       </section>
 
       <!-- Últimas transactions -->
-      <section class="space-y-3">
+      <section class="space-y-3 fade-on-view" use:inViewport>
         <div class="flex items-baseline justify-between">
           <h2 class="font-waldenburg text-2xl font-light text-ink">Últimos movimientos</h2>
           <a href="/transactions" class="text-sm text-ink hover:underline">Ver todos</a>
