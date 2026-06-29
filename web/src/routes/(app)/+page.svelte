@@ -11,6 +11,7 @@
   import { listAccounts } from '$lib/api/accounts';
   import { listTransactions } from '$lib/api/transactions';
   import { getSummary, getByCategory } from '$lib/api/reports';
+  import { toast } from '$lib/stores/toast.svelte';
   import type { User } from '$lib/schemas/auth';
   import type { Transaction } from '$lib/schemas/transaction';
   import type { CategoryReportItem } from '$lib/schemas/report';
@@ -40,8 +41,10 @@
       clearAccessToken();
       authStore.clearUser();
       qc.clear();
+      toast.success('Sesión cerrada');
       goto('/auth/login');
-    }
+    },
+    onError: () => toast.warning('No se pudo cerrar la sesión en el servidor, pero la local sí.')
   }));
 
   onMount(async () => {
