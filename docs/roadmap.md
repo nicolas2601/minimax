@@ -1,0 +1,132 @@
+# minimax — Roadmap & Issues
+
+Local tracker (no GitHub Issues). One file per issue keeps traceability for
+solo dev. Status: `📋 backlog` → `🚧 in-progress` → `✅ done`.
+
+> Repo está en `main` siempre deployable. Cada feature vive en su propia
+> branch bajo `.worktrees/<branch-name>/`. Una feature = una PR (squash) a main.
+
+---
+
+## Fase 0 — Setup ✅
+- Repo monorepo (backend Go + frontend SvelteKit + docker-compose Postgres)
+- Backend hello world con Gin
+- Frontend hello world con Svelte 5 + Tailwind v4
+- CI/CD esqueleto
+
+## Fase 1 — Auth ✅
+- Auth system completo (register/login/refresh/logout/me)
+- bcrypt cost 12, JWT 15m/30d, seed default ES categories
+- SECURITY: bearer extraction slice-panic, SameSite=Lax, JWT_SECRET validation,
+  graceful shutdown
+
+## Fase 2 — Accounts + Categories ✅
+- CRUD con ownership enforcement
+- 13 default ES categories (seeded on register)
+- TDD tests pasando (5 paquetes)
+
+## Fase 3 — Backend features ✅
+- `transactions` package con atomic transfers (split transfer_group_id)
+- `travel` package con expenses/splits/settlements
+- `budgets` package (per-month, per-category)
+- `reports` package con aggregations
+- `goals` package con deposit/withdraw atómicos
+- `recurring` package con rules + runs + generate-today
+- Todos wired en `cmd/api/main.go`
+
+## Fase 4 — Frontend redesign ✅
+- DESIGN.md (ElevenLabs editorial)
+- Mobile-first BottomNav + Stat + ProgressBar + Avatar + Tabs
+- Pages: dashboard, accounts, categories, transactions, travel, budgets
+- Schemas + API clients para todo lo de fase 3
+- 116/116 tests frontend pasando
+
+---
+
+## Pendientes
+
+### 📋 #1 — Frontend goals + recurring [#1-feat-goals-recurring-frontend]
+Branch: `feat/goals-recurring-frontend` → worktree `.worktrees/feat-goals-recurring-frontend/`
+Estado: 🚧 in-progress
+Status: pending merge
+Backend ya está wired; frontend debe tener:
+- [x] Zod schemas (`goal.ts`, `recurring.ts`) con tests
+- [x] API clients (`goals.ts`, `recurring.ts`)
+- [x] Routes `(app)/goals/{+page, new/+page, [id]/+page}.svelte`
+- [x] Routes `(app)/recurring/{+page, new/+page, [id]/+page}.svelte`
+- [x] BottomNav extendido con `target` (Metas) y `repeat` (Recurrentes) icons
+- [x] NavIcon component
+- [ ] Commit atómico por unidad (schemas → pages → nav)
+- [ ] PR description
+
+### 📋 #2 — Backend unit tests para nuevos packages
+Branch: `feat/backend-tests-phase3` → worktree `.worktrees/feat-backend-tests-phase3/`
+Estado: 📋 backlog
+Packages sin tests aún:
+- [ ] `transactions` (atomic transfers, splits, settlements)
+- [ ] `travel` (balance calculator, splits, settlements)
+- [ ] `budgets` (alert_level calculation)
+- [ ] `reports` (category/account/monthly aggregations)
+- [ ] `goals` (deposit/withdraw, percent complete, overdue logic)
+- [ ] `recurring` (NextOccurrence math, OccurrencesBetween)
+Problema: tests existentes requieren Docker (testcontainers). Hay 2 caminos:
+- (a) Configurar Postgres en docker-compose para dev y usar testcontainers
+- (b) Refactorizar para usar SQLite in-memory en unit tests (más rápido, sin Docker)
+Recomendación: (b) para unit tests de lógica pura + integration tests con Docker.
+
+### 📋 #3 — E2E Playwright
+Branch: `feat/e2e-playwright` → worktree `.worktrees/feat-e2e-playwright/`
+Estado: 📋 backlog
+- [ ] Setup Playwright config
+- [ ] Happy paths: register → login → create account → create transaction → verify
+- [ ] Travel: crear grupo, agregar gasto con split, settlement
+- [ ] Goals: crear meta, deposit, verificar percent
+
+### 📋 #4 — CI/CD real
+Estado: 📋 backlog
+- [ ] GitHub Actions o Gitea Actions para `go test` + `pnpm test` en cada PR
+- [ ] Lint: golangci-lint, eslint, prettier
+- [ ] Build artifacts
+
+### 📋 #5 — Database setup para dev sin Docker
+Estado: 📋 backlog
+- [ ] `docker-compose up` con Postgres 16
+- [ ] Documentar setup en README
+- [ ] Alternativa: SQLite para dev (más simple para solo dev)
+
+### 📋 #6 — Reportes en UI
+Estado: 📋 backlog
+- [ ] Charts (donut por categoría, bar por mes)
+- [ ] Drill-down desde dashboard
+
+---
+
+## Convenciones de contribución (solo dev, importante igual)
+
+```bash
+# Antes de empezar
+git checkout main && git pull
+git worktree add .worktrees/<branch> -b <branch>
+cd .worktrees/<branch>
+
+# Trabajar, atomic commits
+git add -p
+git commit -m "feat(scope): verb + what"
+
+# Cuando esté listo
+git push -u origin <branch>   # o git push si hay remote
+# abrir PR / merge
+```
+
+Conventional Commits:
+- `feat(scope):` nueva funcionalidad
+- `fix(scope):` bugfix
+- `chore(scope):` sin cambio de comportamiento (deps, ci, configs)
+- `refactor(scope):` sin fix ni feat
+- `docs(scope):` solo docs
+- `test(scope):` solo tests
+
+Branch naming: `feat/...`, `fix/...`, `chore/...`, `refactor/...`, `docs/...`, `test/...`
+
+Atomic commits: 1 commit = 1 unidad de trabajo verificable.
+Tests van con el código que prueban, no en commit separado.
