@@ -1,4 +1,4 @@
-# minimax — Roadmap & Issues
+# Pivot — Roadmap & Issues
 
 Local tracker (no GitHub Issues). One file per issue keeps traceability for
 solo dev. Status: `📋 backlog` → `🚧 in-progress` → `✅ done`.

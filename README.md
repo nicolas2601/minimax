@@ -1,6 +1,6 @@
-# Minimaax
+# Pivot
 
-App personal de finanzas: gastos, presupuestos, metas, viajes en grupo. Backend Go + Gin, frontend SvelteKit + Svelte 5, Postgres 16, Docker.
+App personal de finanzas: gastos, presupuestos, metas, viajes en grupo. Backend Go + Gin, frontend SvelteKit + Svelte 5, Postgres en Supabase (São Paulo), Docker compose para dev local.
 
 ## Stack
 

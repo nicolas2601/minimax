@@ -1,7 +1,7 @@
 {
-  "name": "Mis finanzas",
-  "short_name": "Finanzas",
-  "description": "Tu dinero bajo control: presupuestos, gastos, metas, viajes en grupo.",
+  "name": "Pivot",
+  "short_name": "Pivot",
+  "description": "Tu pivote financiero: presupuestos, gastos, metas, viajes en grupo.",
   "lang": "es-CO",
   "start_url": "/",
   "scope": "/",
