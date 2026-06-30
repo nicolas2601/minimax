@@ -49,6 +49,14 @@
   --color-gradient-sky: #a8c8e8;
   --color-gradient-rose: #e8b8c4;
 
+  /* Short aliases for ornamental tints (Tailwind generates bg-mint/X,
+   * text-peach, etc. from these) */
+  --color-mint: #a7e5d3;
+  --color-peach: #f4c5a8;
+  --color-lavender: #c8b8e0;
+  --color-sky: #a8c8e8;
+  --color-rose: #e8b8c4;
+
   /* Semantic */
   --color-semantic-error: #dc2626;
   --color-semantic-success: #16a34a;
