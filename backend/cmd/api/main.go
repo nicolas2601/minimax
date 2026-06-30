@@ -35,7 +35,12 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	if err := db.Migrate(cfg); err != nil {
+	// DB_SKIP_AUTO_MIGRATE=true disables in-process migration when the
+	// database is managed externally (e.g. Supabase CLI pushes migrations).
+	// Local docker-compose dev keeps the default (auto-migrate on boot).
+	if os.Getenv("DB_SKIP_AUTO_MIGRATE") == "true" {
+		log.Println("DB_SKIP_AUTO_MIGRATE=true: skipping in-process migrations")
+	} else if err := db.Migrate(cfg); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
