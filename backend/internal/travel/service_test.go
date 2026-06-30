@@ -248,6 +248,82 @@ func (f *fakeRepo) SumShareByUser(groupID, userID uuid.UUID) (int64, error) {
 	return f.shareTotals[memberKey(groupID, userID)], nil
 }
 
+func (f *fakeRepo) BalancesByGroup(groupID uuid.UUID) ([]MemberBalance, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	prefix := groupID.String() + "|"
+	seen := make(map[uuid.UUID]bool, len(f.members))
+	out := make([]MemberBalance, 0)
+	// Union of paid + owed keys so users with only paid or only owed
+	// both make it into the result set (the real PG CTE does the same via
+	// the LEFT JOIN to members + paid + owed).
+	for key, paid := range f.paidTotals {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		userID, err := uuid.Parse(strings.TrimPrefix(key, prefix))
+		if err != nil || seen[userID] {
+			continue
+		}
+		seen[userID] = true
+		out = append(out, MemberBalance{
+			UserID: userID,
+			Paid:   paid,
+			Owed:   f.shareTotals[key],
+		})
+	}
+	for key, owed := range f.shareTotals {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		userID, err := uuid.Parse(strings.TrimPrefix(key, prefix))
+		if err != nil || seen[userID] {
+			continue
+		}
+		seen[userID] = true
+		out = append(out, MemberBalance{
+			UserID: userID,
+			Paid:   f.paidTotals[key],
+			Owed:   owed,
+		})
+	}
+	// Backfill: members who paid and owed nothing should still appear.
+	for key, m := range f.members {
+		if !strings.HasPrefix(key, prefix) || seen[m.UserID] {
+			continue
+		}
+		out = append(out, MemberBalance{UserID: m.UserID})
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) ListExpensesWithSharesByGroup(groupID uuid.UUID) ([]ExpenseWithShares, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	expenses := make([]TravelExpense, 0)
+	for _, e := range f.expenses {
+		if e.GroupID == groupID {
+			expenses = append(expenses, *e)
+		}
+	}
+	sharesByExpense := make(map[uuid.UUID][]TravelExpenseShare, len(expenses))
+	for eID, sh := range f.shares {
+		owner, ok := f.expenses[eID]
+		if !ok || owner.GroupID != groupID {
+			continue
+		}
+		sharesByExpense[eID] = append(sharesByExpense[eID], sh...)
+	}
+	out := make([]ExpenseWithShares, 0, len(expenses))
+	for i := range expenses {
+		out = append(out, ExpenseWithShares{
+			Expense: expenses[i],
+			Shares:  sharesByExpense[expenses[i].ID],
+		})
+	}
+	return out, nil
+}
+
 // fakeUsers implements UserLookup.
 type fakeUsers struct {
 	mu   sync.Mutex

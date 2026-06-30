@@ -199,6 +199,12 @@ func (s *Service) CreateFromRecurring(
 }
 
 func (s *Service) List(userID uuid.UUID, f ListFilter) ([]Transaction, error) {
+	// C4: safety net for callers that omit ?limit=. Without this a user
+	// with 50k transactions could pull the whole table by mistake.
+	const defaultLimit = 200
+	if f.Limit <= 0 || f.Limit > defaultLimit {
+		f.Limit = defaultLimit
+	}
 	return s.repo.ListByUser(userID, f)
 }
 

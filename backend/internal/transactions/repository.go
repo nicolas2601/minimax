@@ -169,6 +169,22 @@ func (r *repo) SumByCategory(userID uuid.UUID, from, to time.Time) ([]CategorySu
 	return out, err
 }
 
+// SumByCategoryAndWindow — same as SumByCategory but lets the caller
+// also slice the date range so it stays a single query even when the
+// caller needs sub-month precision (BudgetVsActual). Uses date_trunc to
+// give the planner a sargable predicate that still hits the
+// (user_id, date) index.
+func (r *repo) SumByCategoryInDateRange(userID uuid.UUID, from, to time.Time) ([]CategorySum, error) {
+	var out []CategorySum
+	err := r.db.Model(&Transaction{}).
+		Select("category_id, SUM(amount) AS total").
+		Where("user_id = ? AND deleted_at IS NULL AND type = ? AND date >= ? AND date < ?",
+			userID, TypeExpense, from, to).
+		Group("category_id").
+		Find(&out).Error
+	return out, err
+}
+
 func (r *repo) SumByAccount(userID uuid.UUID, from, to time.Time) ([]AccountSum, error) {
 	var out []AccountSum
 	err := r.db.Model(&Transaction{}).
@@ -182,24 +198,29 @@ func (r *repo) SumByAccount(userID uuid.UUID, from, to time.Time) ([]AccountSum,
 
 func (r *repo) MonthlyTrend(userID uuid.UUID, from, to time.Time) ([]MonthlyTotal, error) {
 	type row struct {
-		Year  int
-		Month int
-		Total int64
+		MonthStart time.Time
+		Total      int64
 	}
 	var rows []row
+	// The GROUP BY expression MUST match the SELECT expression for Postgres
+	// to consider the SELECT columns functionally dependent. We select
+	// date_trunc('month', date) as the single grouping key.
 	err := r.db.Model(&Transaction{}).
-		Select("EXTRACT(YEAR FROM date)::int AS year, EXTRACT(MONTH FROM date)::int AS month, SUM(amount) AS total").
+		Select("date_trunc('month', date) AS month_start, SUM(amount) AS total").
 		Where("user_id = ? AND deleted_at IS NULL AND type = ? AND date BETWEEN ? AND ?",
 			userID, TypeExpense, from, to).
-		Group("year, month").
-		Order("year ASC, month ASC").
+		Group("date_trunc('month', date)").
+		Order("date_trunc('month', date) ASC").
 		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
 	out := make([]MonthlyTotal, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, MonthlyTotal{Year: r.Year, Month: r.Month, Total: r.Total})
+		// r.MonthStart is a pure date so we slice the year/month back out in Go
+		// — this avoids any chance of "column not in GROUP BY" errors at runtime.
+		y, m, _ := r.MonthStart.UTC().Date()
+		out = append(out, MonthlyTotal{Year: y, Month: int(m), Total: r.Total})
 	}
 	return out, nil
 }

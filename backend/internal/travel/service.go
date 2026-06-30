@@ -1,6 +1,7 @@
 package travel
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -134,7 +135,10 @@ func (s *Service) AddMemberByEmail(groupID, callerID uuid.UUID, req AddMemberReq
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
-	// Idempotent: if already a member, return the existing record.
+	// Race-safe idempotent membership. The repo uses `INSERT … ON CONFLICT
+	// DO NOTHING RETURNING *` so two concurrent callers both see the same
+	// row. Previously this was check-then-insert which had a TOCTOU race
+	// and surfaced a raw PG 23505 to the user.
 	if existing, err := s.repo.GetMember(groupID, userID); err == nil {
 		return existing, nil
 	}
@@ -144,6 +148,10 @@ func (s *Service) AddMemberByEmail(groupID, callerID uuid.UUID, req AddMemberReq
 		Role:    role,
 	}
 	if err := s.repo.AddMember(m); err != nil {
+		if errors.Is(err, ErrAlreadyMember) {
+			// Another caller won the race — return the existing row.
+			return s.repo.GetMember(groupID, userID)
+		}
 		return nil, err
 	}
 	return m, nil
@@ -324,24 +332,16 @@ func (s *Service) ComputeSettlements(groupID, callerID uuid.UUID) ([]SettlementS
 	if err := s.requireMembership(groupID, callerID); err != nil {
 		return nil, err
 	}
-	members, err := s.repo.ListMembers(groupID)
+	// PERF: replaced the N+1 (SumPaidByUser + SumShareByUser per member)
+	// with a single repo call that returns the full balance set in one
+	// round-trip via a CTE.
+	balancesRaw, err := s.repo.BalancesByGroup(groupID)
 	if err != nil {
 		return nil, err
 	}
-	balances := make(map[uuid.UUID]int64, len(members))
-	for _, m := range members {
-		balances[m.UserID] = 0
-	}
-	for userID := range balances {
-		paid, err := s.repo.SumPaidByUser(groupID, userID)
-		if err != nil {
-			return nil, err
-		}
-		owed, err := s.repo.SumShareByUser(groupID, userID)
-		if err != nil {
-			return nil, err
-		}
-		balances[userID] = paid - owed
+	balances := make(map[uuid.UUID]int64, len(balancesRaw))
+	for _, b := range balancesRaw {
+		balances[b.UserID] = b.Paid - b.Owed
 	}
 
 	creditors := make([]balanceEntry, 0)

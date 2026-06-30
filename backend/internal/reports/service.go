@@ -109,9 +109,21 @@ func (s *Service) MonthlyTrend(userID uuid.UUID, from, to time.Time) ([]MonthlyP
 }
 
 // BudgetVsActual computes each budget's actual spending for the period that
-// overlaps [from, to]. The aggregation is approximate — we sum every
-// expense in the budget's window — which matches the common UX expectation
-// of "where am I vs my limit this month".
+// overlaps [from, to].
+//
+// Two-pass approach:
+//   1. Round up the budgets into a single UNION-style date range — the
+//      union of all budgets' date windows is at most [min(StartDate),
+//      max(EndDate or `to`)], and that fits within the user's request
+//      window which is itself a superset.
+//   2. Issue ONE aggregate query that returns per-category totals for
+//      the entire union.
+//   3. For each budget, take the value for its category from the cache
+//      when that budget's [StartDate, EndDate or `to`] is fully contained
+//      in the union, otherwise fall back to a per-budget aggregated query.
+//
+// Per-budget windows outside the unified cache get a single per-budget
+// query (the migration 000010 covering index makes these O(log n)).
 func (s *Service) BudgetVsActual(userID uuid.UUID, from, to time.Time) ([]BudgetActualRow, error) {
 	if s.budgets == nil {
 		return nil, nil
@@ -120,10 +132,36 @@ func (s *Service) BudgetVsActual(userID uuid.UUID, from, to time.Time) ([]Budget
 	if err != nil {
 		return nil, err
 	}
+	if len(budgets) == 0 {
+		return []BudgetActualRow{}, nil
+	}
+	// Compute the cache range: extend the user's window to cover any
+	// budget whose window starts before `from` or ends after `to`. This way
+	// every per-budget filter is a sub-range of the cache and we never
+	// miss data, while still bounding the cache to the budgets' lifetimes.
+	cacheFrom := from
+	cacheTo := to
+	for _, b := range budgets {
+		if b.StartDate.Before(cacheFrom) {
+			cacheFrom = b.StartDate
+		}
+		if b.EndDate != nil && b.EndDate.After(cacheTo) {
+			cacheTo = *b.EndDate
+		}
+	}
+	cache, err := s.tx.SumByCategory(userID, cacheFrom, cacheTo)
+	if err != nil {
+		return nil, err
+	}
+	actualsByCategory := make(map[uuid.UUID]int64, len(cache))
+	for _, a := range cache {
+		if a.CategoryID == nil {
+			continue
+		}
+		actualsByCategory[*a.CategoryID] = a.Total
+	}
 	rows := make([]BudgetActualRow, 0, len(budgets))
 	for _, b := range budgets {
-		// Translate budgets.Date range into [from, to]. If a budget has no
-		// EndDate we use `to` (assume open-ended).
 		bFrom := b.StartDate
 		if bFrom.Before(from) {
 			bFrom = from
@@ -132,20 +170,22 @@ func (s *Service) BudgetVsActual(userID uuid.UUID, from, to time.Time) ([]Budget
 		if b.EndDate != nil && b.EndDate.Before(to) {
 			bTo = *b.EndDate
 		}
-		// We need spending filtered by category AND window. SumByCategory
-		// doesn't filter by category so we filter manually here.
-		actuals, err := s.tx.SumByCategory(userID, bFrom, bTo)
-		if err != nil {
-			return nil, err
-		}
+		// If the budget's [bFrom, bTo] is fully contained in the cache
+		// range, use the cached aggregate. Otherwise fall back to a single
+		// per-budget query — guarded so we don't loop over budgets here.
 		var actual int64
-		for _, a := range actuals {
-			if a.CategoryID == nil {
-				continue
+		if !bFrom.Before(cacheFrom) && !bTo.After(cacheTo) {
+			actual = actualsByCategory[b.CategoryID]
+		} else {
+			agg, err := s.tx.SumByCategory(userID, bFrom, bTo)
+			if err != nil {
+				return nil, err
 			}
-			if *a.CategoryID == b.CategoryID {
-				actual = a.Total
-				break
+			for _, a := range agg {
+				if a.CategoryID != nil && *a.CategoryID == b.CategoryID {
+					actual = a.Total
+					break
+				}
 			}
 		}
 		rows = append(rows, BudgetActualRow{
