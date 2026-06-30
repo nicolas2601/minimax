@@ -140,6 +140,9 @@ jobs:
         working-directory: web
         run: pnpm exec playwright install --with-deps chromium
       - name: Start backend
+        # The binary looks up SQL migrations via `file://migrations` (relative),
+        # so it has to run from the backend directory.
+        working-directory: backend
         run: /tmp/api &
         env:
           DATABASE_URL: postgres://finanzas:finanzas_dev_password@localhost:5432/finanzas?sslmode=disable
