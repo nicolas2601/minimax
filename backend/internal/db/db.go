@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -27,7 +28,25 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		return nil, errors.New("db: DATABASE_URL is empty")
 	}
 
-	gormDB, err := gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{})
+	// When connecting through Supabase's Supavisor pooler (port 6543), prepared
+	// statement caching collides with the pooler's own statement cache and
+	// surfaces as SQLSTATE 42P05 "prepared statement ... already exists".
+	// Two layered fixes:
+	//   1. Disable gorm's prepared-statement cache.
+	//   2. Tell pgx (via DSN) to use simple protocol — no server-side prepared
+	//      statements — which is the Supabase-recommended setting for pooler.
+	// For direct connections (port 5432) both options are harmless no-ops.
+	dsn := cfg.DatabaseURL
+	if !strings.Contains(dsn, "default_query_exec_mode=") {
+		sep := "?"
+		if strings.Contains(dsn, "?") {
+			sep = "&"
+		}
+		dsn = dsn + sep + "default_query_exec_mode=simple_protocol"
+	}
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		PrepareStmt: false,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("db: open postgres: %w", err)
 	}

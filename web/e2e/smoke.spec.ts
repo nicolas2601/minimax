@@ -5,15 +5,22 @@
  */
 import { test, expect } from '@playwright/test';
 
-const API_HEALTH = '/api/v1/health';
+// Backend exposes its health check at `/health` (root), not `/api/v1/health`.
+// The vite dev server in this repo also forwards `/health` to the backend so
+// the SPA and the test share the same origin.
+const API_HEALTH = '/health';
 
-test('backend /api/v1/health returns 200', async ({ request }) => {
+test('backend /health returns 200', async ({ request }) => {
   const r = await request.get(API_HEALTH);
   expect(r.status()).toBe(200);
+  expect(await r.text()).toContain('"status":"ok"');
 });
 
 test('frontend root serves the SPA shell', async ({ page }) => {
   const r = await page.goto('/');
   expect([200, 304]).toContain(r?.status() ?? 0);
-  await expect(page.locator('main, body')).toBeVisible();
+  // The root layout renders <main>; body is always present but using just
+  // `body` would also match shadow roots. Be specific to avoid strict-mode
+  // violations when both elements exist on a route.
+  await expect(page.locator('main, body').first()).toBeVisible();
 });
