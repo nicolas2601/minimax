@@ -68,6 +68,8 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
       - name: Type check
+        env:
+          PUBLIC_API_URL: http://localhost:8080/api/v1
         run: pnpm check
       - name: Unit tests
         env:
