@@ -13,7 +13,10 @@ test.describe('Navigation + reports', () => {
     const user = await freshUser();
     await registerAndLogin(page, user);
     await page.goto('/reports');
-    await expect(page.getByRole('heading', { name: /reportes/i })).toBeVisible();
+    // The page is reloading to a route that needs the access token in localStorage.
+    // Wait for the heading (or the login redirect) before asserting period selector.
+    await expect(page).toHaveURL(/\/reports/);
+    await expect(page.getByRole('heading', { name: /reportes/i })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('group', { name: /período/i })).toBeVisible();
   });
 

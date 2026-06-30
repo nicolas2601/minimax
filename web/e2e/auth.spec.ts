@@ -12,7 +12,8 @@ test.describe('Auth flow', () => {
     await page.goto('/auth/login');
     await page.getByLabel(/email/i).fill('nobody@example.com');
     await page.getByLabel(/contraseña/i).fill('wrongpass1');
-    await page.getByRole('button', { name: /entrar|iniciar/i }).click();
+    // Submit button in the SPA reads "Ingresar" (not "Entrar" or "Iniciar").
+    await page.getByRole('button', { name: /entrar|iniciar|ingresar/i }).click();
     await expect(page.getByRole('status')).toBeVisible({ timeout: 5_000 });
   });
 
